@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -38,6 +38,8 @@ export class DashboardComponent implements OnInit {
   temp : Array<string> = [];
   books : JSON;
   bib : JSON;
+  commentaar2 : JSON;
+  commentaar2_deels : Array<string>;
 
   ready : boolean = false;
   results : string[] = [];
@@ -52,6 +54,7 @@ export class DashboardComponent implements OnInit {
   startupBook : Array<string> = ['1'];
 
   selectedLine : number = 0;
+  gegevenRegel : number = 0;
 
   panelOpenState: boolean = false;
   allExpandState = true;
@@ -68,7 +71,8 @@ export class DashboardComponent implements OnInit {
   ngOnInit() {
     this.requestPrimaryText(this.startupBook);
     this.requestAuthors();
-    // this.requestBibliography(this.startupBook);
+    this.requestBibliography();
+    this.requestSecondaryCommentary(this.startupBook);
   }
 
   public requestPrimaryText(currentBook: Array<string>){
@@ -99,6 +103,19 @@ export class DashboardComponent implements OnInit {
           .catch(error => console.log(error));
   }
 
+  public requestSecondaryCommentary(currentBook: Array<string>){
+    this.currentBook = currentBook;
+    this.api = new APIComponent(this.httpClient);
+    this.api
+          .getSecondaryCommentary(currentBook)
+          .then(result => {
+            this.commentaar2 = result as JSON;
+            this.getString(this.commentaar);
+            this.ready = true;
+          })
+          .catch(error => console.log(error));
+  }
+
   public requestAuthors(){
     this.api = new APIComponent(this.httpClient);
     this.api
@@ -111,15 +128,15 @@ export class DashboardComponent implements OnInit {
           .catch(error => console.log(error));
   }
 
-  public requestBibliography(currentBook: Array<string>){
+  public requestBibliography(){
     this.api = new APIComponent(this.httpClient);
     this.api
-          .getBibliography(currentBook)
+          .getBibliography(this.currentBook)
           .then(result => {
             this.bib = result as JSON;
             this.getString(this.bib);
             this.ready = true;
-            console.log(this.bib);
+            console.log("Bib requested")
           })
           .catch(error => console.log(error));
   }
@@ -135,6 +152,22 @@ export class DashboardComponent implements OnInit {
           })
           .catch(error => console.log(error));
   }
+
+  public ophalenCommentaren(gegevenRegel){
+    this.requestCommentaar(gegevenRegel);
+    gegevenRegel = Number(gegevenRegel)
+
+    for(let arrayElement in this.commentaar2){
+      if(Number(this.commentaar2[arrayElement][0]) <= gegevenRegel){
+        if(Number(this.commentaar2[arrayElement][1]) >= gegevenRegel){
+          // console.log("found it", gegevenRegel, this.commentaar2[arrayElement][0], this.commentaar2[arrayElement][1] );
+          this.commentaar2_deels = this.commentaar2[arrayElement][2]
+        }
+      }
+    }
+  }
+  
+  
 
   public getString(insertedJSON: JSON){
     return JSON.stringify(insertedJSON);
@@ -153,12 +186,42 @@ export class DashboardComponent implements OnInit {
     console.log('de testfunctie is aangeroepen!')
   }
 
+
+  openSm(content) {
+    this.modalService.open(content, { size: 'sm' });
+  }
+
+  openLg(bib1) {
+    this.modalService.open(bib1, { size: 'lg' });
+  }
+
   public isValidFoo(commentaarScope : number){
+    console.log("scope", commentaarScope)
     if (commentaarScope + 6 > this.selectedLine){
       return true;
     } else {
       return false;
     }
+  }
+
+  public isEmpty(obj) {
+    for(var key in obj) {
+        if(obj.hasOwnProperty(key))
+            return false;
+    }
+    return true;
+}
+
+  public checkEmptyBlock(temp : JSON){
+    // console.log("hi", temp)
+    if(this.isEmpty(temp)) {
+      // console.log("empty");// Object is empty (Would return true in this example)
+      return true;
+    } else {
+      // console.log("not empty");
+      return false;
+    }
+  
   }
 
   open(content) {
@@ -223,6 +286,19 @@ class APIComponent {
             .catch(this.handleError);
   }
 
+  public getSecondaryCommentary(currentBook : Array<string>) : Promise<any> {
+    // console.log(list);
+    return this.httpClient
+            .get('http://katwijk.nolden.biz:5002/getSecondaryCommentary', {
+              params: {
+                currentBook: currentBook.toString(),
+              },
+            })
+            .toPromise()
+            .then(this.extractData)
+            .catch(this.handleError);
+  }
+
   public getAuthors() : Promise<any> {
     return this.httpClient
             .get('http://katwijk.nolden.biz:5002/getAuthors')
@@ -243,12 +319,12 @@ class APIComponent {
             .catch(this.handleError);
   }
 
-  public getBibliography(currentBook : Array<string>) : Promise<any> {
+  public getBibliography(currentText : Array<string>) : Promise<any> {
     return this.httpClient
-            .get('http://katwijk.nolden.biz:5002/getBibliography',{
+            .get('http://katwijk.nolden.biz:5002/getBibliography', {
               params: {
-                currentBook: currentBook.toString(),
-              }
+                currentText: currentText.toString(),
+              },
             })
             .toPromise()
             .then(this.extractData)
@@ -275,36 +351,5 @@ class APIComponent {
     console.error('An error occurred', error);
     return Promise.reject(error.message || error);
   }
-
-
-
-  // public getCommentaarCode(commentaryLine : Array<string>) : Promise<any> {
-  //   return  this.httpClient
-  //           .get('http://katwijk.nolden.biz:5002/3', {
-  //             params: {
-  //               commentaryLines: commentaryLine.toString(),
-  //               commentaryLines2: commentaryLine.toString()
-  //             },
-  //             observe: 'response'
-  //           })
-  //           .toPromise()
-  //           .catch(this.handleError);
-  // }
-
 }
 
-// export class NgbdAccordionBasicComponent {
-//   beforeChange($event: NgbPanelChangeEvent) {
-//     if ($event.panelId === 'preventchange-2') {
-//       $event.preventDefault();
-//     }
-
-//     if ($event.panelId === 'preventchange-3' && $event.nextState === false) {
-//       $event.preventDefault();
-//     }
-//   }
-// }
-
-// export class NgbdCollapseBasic {
-//   public isCollapsed = false;
-// }
